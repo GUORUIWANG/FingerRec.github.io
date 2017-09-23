@@ -1,0 +1,18 @@
+---
+title:  "文件测试"
+date:   2017-09-22 15:53:23
+categories: [ImageProcessing]
+tags: [ImageProcessing]
+
+---
+
+## 代码编辑
+
+``` ruby
+def print_hi(name)
+  puts "Hi, #{name}"
+end
+print_hi('Tom')
+#=> prints 'Hi, Tom' to STDOUT.
+```
+
