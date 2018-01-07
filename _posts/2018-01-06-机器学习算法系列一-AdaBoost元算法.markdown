@@ -77,7 +77,7 @@ A Toy Example(From Schapire's Slides)：
 对于问题一，弱分类器的构建，弱分类器可以是任意使用过的监督学习分类器，单层决策树，logistic,svm,knn都可以，这里不再给出。
 
 问题2:	
-权值和alpha确定所涉及到的公式   
+权值和alpha确定所涉及到的公式如下：  
 
 $$
    e={\frac{a}{b}}
