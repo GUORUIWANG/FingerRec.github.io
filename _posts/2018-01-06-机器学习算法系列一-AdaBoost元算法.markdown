@@ -1,0 +1,178 @@
+---
+title:  "机器学习算法系列一-AdaBoost元算法"   
+date:   2018-01-06 15:53:23  
+categories: [MachineLearning]  
+tags: [MachineLearning]  
+
+---
+
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+## AdaBoost元算法
+
+```
+---
+作用：提高分类性能
+---
+
+```
+### 元算法
+
+领导在做决定时，会听取多人意见。机器学习算法也一样，即元算法原理，对其它算法进行组合。AdaBoost是最流行的元算法。一些人认为AdaBoost和SVM是最好的监督学习算法。
+
+### Bagging
+
+自举汇聚法(bootstrap aggregating):
+从原数据集中选择s此得到s个新数据集的方法，新数据集和原数据集大小一致，每个数据集均由原始数据集中随意选择一个替换得到。
+将某个学习算法应用与每个数据集得到s个分类器，要对新数据进行分类时，可以应用这s个分类器进行分类。
+更先进的Bagging算法：随机森林(Random Bagging)。
+
+### Boosting
+
+不同的分类器是通过串行训练得到，每个新分类器根据已训练出的分类器来训练，boosting集中关注已有分类器分类错的数据来获得新分类器。
+Boosting分类结果基于所有分类器的加权求和结果。而bagging中分类器权重相等。boosting代表的权重为对应分类器在上一轮迭代中的成功度。
+
+### AdaBoost
+
+来源：能否用弱分类器（即分类性能比随机预测略好）和多个实例来构建强分类器;
+adaptive boosting(自适应boosting)
+
+#### 优势（比较boosting）：
+
+1. 使用加权后选取的训练数据代替随机选取的训练样本，这样将训练的焦点集中在比较难分的训练数据样本上； 　　 
+2. 将弱分类器联合起来，使用加权的投票机制代替平均投票机制。让分类效果好的弱分类器具有较大的权重，而分类效果差的分类器具有较小的权重。
+3. 与Boosting算法不同的是，AdaBoost算法不需要预先知道弱学习算法学习正确率的下限即弱分类器的误差，并且最后得到的强分类器的分类精度依赖于所有弱分类器的分类精度，这样可以深入挖掘弱分类器算法的能力。
+
+
+## 详细解释
+### 算法示意图
+![](http://owvctf4l4.bkt.clouddn.com/adabost2)
+这里给出AdaBoost在二分类问题中的应用，算法示意图如上所示，直方图的不同宽度代表每个样例的不同权重，在经过每个弱分类器之后，加权的预测结果会通过三角形中的alpha进行加权。求和后做为最终输出结果，根据thresh判断分类结果。
+
+具体分类问题：
+![](https://www.researchgate.net/profile/Brendan_Marsh3/publication/306054843/figure/fig3/AS:393884896120846@1470920885933/Figure-5-Training-of-an-AdaBoost-classifier-The-first-classifier-trains-on-unweighted.png)
+> Toy Example对快速理解AdaBoost元算法很有帮助，给出参考链接：
+A Toy Example(From Schapire's Slides)：
+[lecture_boosting.pdf](https://www.cse.buffalo.edu/~jcorso/t/CSE555/files/lecture_boosting.pdf)
+
+### 理论
+
+#### 构建过程
+1.程序一开始，**每个样本都设立一个权重**，记为权重向量D。权重都被初始化为相等值。  
+2.第一次在数据集上训练一个弱分类器之后并计算错误率。  
+3.在第二次训练中，按照上述公式重新调整每个样本的权重，第一次分对的样本权重降低，分错的样本权重提高，训练得到第二个弱分类器。以此类似。（注：AdaBoost有不同实现方式，诸如方式二：将分错的样本和其他的新数据一起构成一个新的训练样本集，通过对这个样本的学习得到第二个弱分类器）  
+
+得到N个弱分类器之后或者错误率变为0之后停止训练，此时每个弱分类器都有一个对应的权重alpha,最后的结果由所有的弱分类器共同投票得到。
+
+
+注：每个样本都有权重，初始通常设为1/m,m为样本个数。
+#### 具体公式
+有了算法示意图和上述表示之后，需要解决的问题有两个：   
+1.弱分类器的构建   	
+2.权值和alpha的确定 	   
+
+对于问题一，弱分类器的构建，弱分类器可以是任意使用过的监督学习分类器，单层决策树，logistic,svm,knn都可以，这里不再给出。
+
+问题2:	
+权值和alpha确定所涉及到的公式   
+
+$$
+   e={\frac{a}{b}}
+$$
+
+a:未被正确分类数目   
+b:所有样本数目      
+e:分类错误率   
+
+$$
+   alpha = {\frac{1}{2}}\ln{\frac{1-e}{e}}
+$$
+
+alpha:单个分类器权重值  
+
+如果样本正确分类，权重更新为  
+
+$$
+	D ^ {(t + 1)}  = {\frac{ { D } ^ {(t)} e^a}{Sum(D)}}
+$$
+
+如果样本错误分类，权重更新为  
+
+$$
+	D ^ {(t + 1)} = {\frac{D^{(t)} e^a}{Sum(D)}}
+$$
+  
+a:alpha  
+t:迭代次数  
+D:权重向量  
+    
+公式1计算错误率，公式2根据当前分类器错误率计算权重系数alpha，公式3更新每个样本的权重。
+
+#### AdaBoost_aplha.m
+ 
+``` matlab
+er = 0:0.01:1;
+alpha = 0.5.*log((1-er)./er)
+
+% Specified in plot order
+plot(ir,alpha,'o');
+% Labels and Legend
+xlabel('errorRate')
+ylabel('alpha')
+```
+
+![曲线图](http://owvctf4l4.bkt.clouddn.com/tmp1)
+
+绘制出权重alpha曲线图，可以看出对于每一个弱分类器，根据错误率e计算得到Alpha值，当e越大时，alpha越小，投票作用越小。当e较小时，投票作用较大。
+
+这里需要注意弱分类器定义中的弱意味着在二分类问题中，性能比随机猜测略好，但也不会好太多，由图可知，意味着errorRate小于50%,alpha为正值。
+
+>A weak classifier must work better than chance. In the two-class setting this means it has less than 50% error and this is easy; if it would have higher than 50% error, just flip the sign. So, we want only a classifier that does not have exactly 50% error (since these classifiers would add no information).
+
+注：AdaBoost也会产生过拟合问题，但比别的有监督学习产生过拟合的概率较小，每个弱分类器都有投票权。
+
+## 二分类AdaBoost核心实现
+
+使用python编写AdaBoost生成强分类器过程；buildStump为任意构建得到的弱分类器，此处为单层决策树。
+
+整个实现的伪代码如下：
+
+```
+对每次迭代：
+	利用bulidStump()函数找到最佳单层决策树，作为弱分类器
+	将最佳单层决策树加入到单层决策树数组
+	计算alpha
+	计算新权重向量D
+	更新累计类别估计值
+	如果错误率等于0.0，则退出循环
+```
+
+``` python
+def adaBoostTrainDS(dataArr, classLabels,numIt=40):
+	weakClassArr = [] #弱分类器数组
+	m = shape(dataArr)[0] #数据矩阵行维度
+	D = mat(ones((m,1))/m)#每个样本权重分为1/m
+	aggClassEst = mat(zeros((m,1)))#列向量
+	for i in range(numIt):
+		bestStump,error,classEst = buildStump(dataArr,classLabels,D)#build Stump
+	#	print ("D:",D.T)
+		alpha = float(0.5*log((1.0-error)/max(error,1e-16)))#calc alpha, throw in max(error,eps) to account for error=0
+		bestStump['alpha'] = alpha  
+		weakClassArr.append(bestStump)                  #store Stump Params in Array
+	#	print ("classEst: ",classEst.T)
+		expon = multiply(-1*alpha*mat(classLabels).T,classEst) #exponent for D calc, getting messy
+		D = multiply(D,exp(expon))                              #Calc New D for next iteration
+		D = D/D.sum()
+		#calc training error of all classifiers, if this is 0 quit for loop early (use break)
+		aggClassEst += alpha*classEst # 每个弱分类器的预测值*alpha
+	#	print ("aggClassEst: ",aggClassEst.T) #.T:转置
+		aggErrors = multiply(sign(aggClassEst) != mat(classLabels).T,ones((m,1)))
+		#The sign function returns -1 if x < 0, 0 if x==0, 1 if x > 0. nan is returned for nan inputs.
+		errorRate = aggErrors.sum()/m #
+		if errorRate == 0.0 : break
+		print("total error:",errorRate)
+	return weakClassArr,aggClassEst
+```
