@@ -1,0 +1,531 @@
+---
+title:  "机器学习算法系列二-ID3决策树"   
+date:   2018-01-16 16:32:23  
+categories: [MachineLearning]  
+tags: [MachineLearning]  
+
+---
+
+<script type="text/javascript"
+   src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/x-mathjax-config"> MathJax.Hub.Config({ TeX: { equationNumbers: { autoNumber: "all" } } }); </script>
+
+
+## ID3决策树
+
+```
+---
+简介：数据形式非常好理解，可以给出内在含义。 决策树使用不熟悉的数据集合，并从中提取出一系列规则用以分类，提出规则的过程就是机器学习的过程。
+---
+
+```
+### 1.决策树
+
+首先简单构造数据集，包含5个样例，每个样例包含2个特征和一个类别标签。
+
+```python
+'''
+	输入数据集
+	5行(样本个数)3列(2列特征) 最后一列类别标签）
+	labels对应特征名
+'''
+def createDataSet():
+	dataSet = [[1, 1, 'yes'],
+			[1, 1, 'yes'],
+			[1, 0, 'no'],
+			[0, 1, 'no'],
+			[0, 1, 'no']] #list,元素为list
+	labels = ['no surfacing', 'flippers']
+	return dataSet, labels
+```
+目的是使用ID3算法构造以下决策树，每一个样例都能被正确分类。
+可以看出5个样例都被正确分类。
+![](http://owvctf4l4.bkt.clouddn.com/ID3_img2)
+
+### 2.信息增益
+
+为了构造决策树，需要首先了解如何构造和划分树。要了解如何划分树，就需要了解划分数据集的原则，划分数据集的原则有很多种，最常用的划分数据集的原则是：将无序的数据变得更加有序。组织杂乱无章数据的常用方式是使用信息论量化度量信息内容。集合信息的度量方式称为香农熵或者熵。  
+
+**熵(entropy)**定义为信息的期望值，则对于类别x的信息定义如公式一所示，其中熵的定义如公式二所示。
+	
+$$
+	l(x_i)  = -\log_2 p(x_i)
+$$
+
+$$
+	H = -\sum_{i=0}^n p(x_i)l(x_i)
+$$
+
+x:类别  
+$$ p(x_i) $$ :分为此类的概率  
+$$ l(x_i) $$ :分类x对应的信息期望值  
+n:分类数目
+
+
+定义函数calcShannonEnt，用来从原始数据集计算香农熵。
+
+``` python
+# -*- coding:utf-8
+from math import log
+import operator
+import treePlotter
+
+'''
+	计算香农熵
+	输入： dataSet:数据集（最后一列为标签，前面列为特征）
+'''
+def calcShannonEnt(dataSet):
+	numEntries = len(dataSet) #数据个数
+	labelCounts = {}#数据字典，键为最后一列标签，key-value,python内置构建dict的hash索引表，查找很快
+	for featVec in dataSet: #key必须是不可变对象，
+		currentLabel = featVec[-1] #数据标签，是否属于鱼类
+		#print(currentLabel)
+		if currentLabel not in labelCounts.keys(): #查找key
+			labelCounts[currentLabel] = 0
+		labelCounts[currentLabel] += 1 #计算类别个数
+	print(labelCounts)
+	shannonEnt = 0.0
+	for key in labelCounts:
+		prob = float(labelCounts[key])/numEntries #每个概率
+		shannonEnt  -= prob * log(prob, 2) #求香农熵
+	return shannonEnt
+```
+
+### 3.数据集划分
+了解了如何度量数据集的无序程度，分类算法除了需要测量信息熵，还需要划分数据集，度量划分数据集的熵,定义函数splitDataSet用于根据特定特征划分数据集。
+
+``` python
+
+'''
+	按照给定特征划分数据集
+	返回对应特征与value相等的集合
+	dataSet:待划分数据集
+	axis:划分数据集的特征
+	value:需返回的特征的值
+	eg: axis:0 value:1 dataset[[1,1,'yes],[1,1,'yes'], [1,0,'no'], [0,1,'no'],[0,1,'no']]  retDataSet = [[1,'yes'],[1,'yes'],[0,'no']]
+'''
+def splitDataSet(dataSet, axis, value):
+	retDataSet = []  #列表对象
+	for featVec in dataSet: #每一行（即一个样本） 得到去除对应axis的特征且与特征相等的集合
+		if featVec[axis] == value:
+			reducedFeatVec = featVec[:axis] #从开始到axis，初始为空
+			reducedFeatVec.extend(featVec[axis+1:]) #把特征抽取出来，从下一维到结束
+			retDataSet.append(reducedFeatVec) #添加元素，每个元素不包含特征
+	return retDataSet
+```
+
+对于特定数据集，需要选择最好的特征划分方式，即找到使得熵对应最大的分类特征，也就是当前特征和数据集中的最佳划分方式。
+
+```python
+'''
+	选择最好的特征划分方式
+	使用ID3算法，即若某次划分时特征有四个值，则划分为4个分支
+'''
+def chooseBestFeatureToSplit(dataSet):
+	numFeatures = len(dataSet[0]) - 1 #特征个数
+	baseEntory = calcShannonEnt(dataSet) #原始熵
+	bestInfoGain = 0.0; bestFeature = -1
+	for i in range(numFeatures): #遍历特征
+		featList = [example[i] for example in dataSet] #[1,1,1,0,0] 取出每一个样本的第i个特征
+		uniqueVals = set(featList) # 使用set,确保每个值都不相同，从列表中创建集合是python中得到列表唯一元素值的最快方法。
+		newEntropy = 0.0
+		for value in uniqueVals: #遍历每个特征对应的不同值，进行不同划分
+			subDataSet = splitDataSet(dataSet, i, value) #按照不同特征值分类
+			prob = len(subDataSet)/float(len(dataSet)) #p(x(i))
+			newEntropy += prob * calcShannonEnt(subDataSet) #熵的和
+		infoGain = baseEntory - newEntropy  #信息增益
+		if (infoGain > bestInfoGain):   #差值
+			bestInfoGain = infoGain # 找到熵最大值
+			bestFeature = i #找到最佳特征划分方式
+	return bestFeature
+```
+
+### 4.ID3
+
+决策树常用的有ID3，C4.5， CART等。决策树构建实际上就是递归的过程，不断入栈后出栈。
+ID3的递归工作过程：
+1.对原始数据集，找到最佳划分方式，  
+2.按照找到的最佳属性值划分数据集，由于特征值可能多个，因此会存在多个分支。  
+3.数据向下传递，再次划分。  
+递归结束的条件是：  
+1.程序遍历完所有划分数据集的属性。  
+2.每个分支下的所有实例都具有相同的分类。  
+
+```python
+'''
+    投票表决
+    类标签
+'''
+def majorityCnt(classList): #投票
+	classCount = {}
+	for vote in classList:
+		if vote not in classCount.keys(): classCount[vote] = 0
+		classCount[vote] += 1
+	sortedClassCount = sorted(classCount.iteritems(),\
+		key = operator.itemgetter(1), reverse = True)
+	return sortedClassCount[0][0]
+
+'''
+    构建树
+    dataSet:数据集 特征+类别标签
+    label:['no surfacing' 'flippers'] 属性标签
+'''
+def createTree(dataSet, labels):
+	classList = [example[-1] for example in dataSet]  #类别标签，['yes' 'yes' 'no' 'no' 'no']
+	if classList.count(classList[0]) == len(classList): #类别完全相同则停止划分
+		return classList[0]
+	if len(dataSet[0]) == 1: #只剩类别标签
+		return majorityCnt(classList) #若特征已遍历完毕返回出现次数最多的特征
+	bestFeat = chooseBestFeatureToSplit(dataSet) #寻找最佳划分方式
+	bestFeatureLabel = labels[bestFeat] #第几个标签
+	myTree = {bestFeatureLabel:{}} # 字典，子元素可能为子树 First Time: {'no surfacing': {}} Second: {'no surfacing': {0: 'no'}} Third: {'flippers': {0: 'no'}}
+	del(labels[bestFeat]) #删除最好特征 #最终 {'no surfacing': {0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}}
+	featValues = [example[bestFeat] for example in dataSet] # 找到最好划分方式的不同特征值
+	uniqueVals = set(featValues)
+	for value in uniqueVals:
+		subLabels = labels[:] #按引用传递
+		myTree[bestFeatureLabel][value] = createTree(splitDataSet\
+								(dataSet, bestFeat, value), subLabels) #返回子树 #递归调用，最好元素划分的子集也是子树
+	return myTree
+```
+#### 5.绘图
+
+matplotlib中提供了注解工具annotations,可以在数据图形上添加文本信息。绘图需按照matplotlib给出的实例。
+
+```python
+# -*- coding:utf-8
+import matplotlib.pyplot as plt 
+#import pdb
+#绘制树形图
+decisionNode = dict(boxstyle = "sawtooth", fc = "0.8")  #决策点
+leafNode = dict(boxstyle = "round4", fc="0.8") #叶子节点
+arrow_args = dict(arrowstyle = "<-") # 箭头
+
+#annotate 绘制节点，实际的绘制功能
+'''
+	nodeTxt:节点名称，
+	centerPt:结束节点
+	parentPt:开始节点
+	nodeType:节点类型
+'''
+def plotNode(nodeTxt, centerPt, parentPt, nodeType):
+	createPlot.ax1.annotate(nodeTxt, xy = parentPt,\
+		xycoords = 'axes fraction',\
+		xytext = centerPt, textcoords = 'axes fraction', \
+		va = "center", ha = "center", bbox = nodeType, arrowprops = arrow_args)
+'''
+def createPlot():
+	fig = plt.figure(1, facecolor = 'white')
+	fig.clf()
+	createPlot.ax1 = plt.subplot(1,1,1, frameon = False)
+	plotNode('judge node', (0.5, 0.1), (0.1, 0.5), decisionNode) # 节点类型
+	plotNode('leaf node', (0.8, 0.1), (0.3, 0.8), leafNode) #
+	plt.show()
+'''
+#叶子结点数目
+def getNumLeafs(myTree):
+	numLeafs = 0 #初始化
+	firstStr = myTree.keys()[0] #特征信息 first Time:'no surfacing'
+	secondDict = myTree[firstStr] #特征信息对应健值
+	#print 'secondDict is %s' %secondDict  
+	#secondDict is {0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}
+	#secondDict is {0: 'no', 1: 'yes'}
+	for key in secondDict.keys(): #键值
+		#print 'key is: %s ' % key 
+		#print ' type is: %s' % type(secondDict[key]).__name__
+		# key is: 0 type is: str key is: 1 type is: dict key is: 0 type is: strkey is: 1 type is: str
+		if type(secondDict[key]).__name__ == 'dict': #节点类型是否为非节点，仍有子树
+			numLeafs += getNumLeafs(secondDict[key]) #递归调用
+		else:	numLeafs += 1 #若是节点，非子树，加一
+	return numLeafs
+#深度
+def getTreeDepth(myTree):
+	maxDepth = 0
+	firstStr = myTree.keys()[0]
+	secondDict = myTree[firstStr]
+	for key in secondDict.keys():
+		if(type(secondDict[key])).__name__ == 'dict': # 查看节点是否为属性值，是则继续
+			thisDepth = 1 + getTreeDepth(secondDict[key])
+		else: thisDepth = 1
+		if thisDepth > maxDepth: maxDepth = thisDepth
+	return maxDepth
+#固定一棵树,返回树
+def retrieveTree(i):
+	listOfTrees = [{'no surfacing': {0: 'no', 1: {'flippers':\
+					{0: 'no',1: 'yes'}},3: 'maybe'}}
+					]
+	return listOfTrees[i]
+
+#找到中间位置，添加文本标签
+def plotMidText(cntrPt, parentPt, txtString):
+	xMid = (parentPt[0] - cntrPt[0])/2.0 + cntrPt[0]
+	yMid = (parentPt[1] - cntrPt[1])/2.0 + cntrPt[1]
+	createPlot.ax1.text(xMid, yMid, txtString)
+
+#绘制树
+def plotTree(myTree, parentPt, nodeTxt):
+	numLeafs = getNumLeafs(myTree)
+	depth = getTreeDepth(myTree)
+	firstStr = myTree.keys()[0]
+	cntrPt = (plotTree.xOff + (1.0 + float(numLeafs))/2.0/plotTree.totalW,\
+		plotTree.yOff)
+	plotMidText(cntrPt, parentPt, nodeTxt)
+	plotNode(firstStr, cntrPt, parentPt, decisionNode)
+	secondDict = myTree[firstStr]
+	plotTree.yOff = plotTree.yOff - 1.0/plotTree.totalD
+	for key in secondDict.keys():
+		if type(secondDict[key]).__name__ == 'dict':
+			plotTree(secondDict[key], cntrPt, str(key))
+		else:
+			plotTree.xOff = plotTree.xOff + 1.0/plotTree.totalW
+			plotNode(secondDict[key], (plotTree.xOff, plotTree.yOff),\
+				cntrPt, leafNode)
+			plotMidText((plotTree.xOff, plotTree.yOff), cntrPt, str(key))
+	plotTree.yOff = plotTree.yOff + 1.0/plotTree.totalD
+
+# 创建绘图区，计算全局尺寸
+def createPlot(inTree):
+	fig = plt.figure(1, facecolor = 'white')
+	fig.clf() #晴空窗口
+	axprops = dict(xticks=[], yticks =[])
+	createPlot.ax1 = plt.subplot(111,frameon=False, **axprops)
+	plotTree.totalW = float(getNumLeafs(inTree))
+	plotTree.totalD = float(getTreeDepth(inTree))
+	plotTree.xOff = -0.5/plotTree.totalW; # x偏移
+	plotTree.yOff = 1.0;
+	plotTree(inTree, (0.5, 1.0),'') #原始节点
+	plt.show()
+
+if __name__ == '__main__':
+	#createPlot()
+	#print retrieveTree(0)
+	myTree = retrieveTree(0)
+	#print getNumLeafs(myTree)
+	#print getTreeDepth(myTree)
+	createPlot(myTree)
+```
+
+#### 6.树保存与使用
+
+pickle库可用来序列化对象，保存树在指定文本中，使用时读取即可恢复。
+
+```python
+'''
+	使用pickle来序列化存树
+'''
+def storeTree(inputTree, filename):
+	import pickle #可序列化，存储对象
+	fw = open(filename,'w')
+	pickle.dump(inputTree,fw)
+	fw.close()
+'''
+	取树
+'''
+def grabTree(filename):
+	import pickle
+	fr = open(filename)
+	return pickle.load(fr)
+```
+#### 7.分类
+
+在决策树训练完成后，使用pickle保存，当有分类需求时加载树并进行分类。分类时首先从root开始分类，如果是叶子节点则返回分类标签。
+
+```python
+'''
+	inputTree:输入树 {'no surfacing': {0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}}
+	featLabels:特征标签 <type 'list'>: ['flippers']
+	testVec:测试向量 <type 'list'>: [1, 0]
+'''
+def classify(inputTree,featLabels,testVec):
+	firstStr = inputTree.keys()[0] #'no surfacing' 特征
+	secondDict = inputTree[firstStr] #{0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}
+	featIndex = featLabels.index(firstStr)
+	for key in secondDict.keys():
+		if testVec[featIndex] == key: #如果是树，继续前进至子树
+			if type(secondDict[key]).__name__ == 'dict':
+				classLabel = classify(secondDict[key], featLabels, testVec)
+			else:	classLabel = secondDict[key]
+	return classLabel #返回类别标签
+```
+
+#### 总结：
+
+1. ID3算法会构建非常好的决策树，但是匹配选项可能过多，决策节点过多，称之为**过度匹配(overfitting)**,解决方案为裁剪树，去掉一些不必要的叶子节点。如果叶子节点只能增加少量信息，则可以删除节点，把叶子加入其它节点。 
+2. ID3无法处理数值型数据，只能通过量化的方式把数值型数据转换为对称型数据。
+3. 决策树和KNN一样，给出的都是确定的分类，贝叶斯给出的是分类概率。
+
+
+### 完整实现
+
+```python
+# -*- coding:utf-8
+from math import log
+import operator
+import treePlotter
+
+'''
+	计算香农熵
+	输入： dataSet:数据集（最后一列为标签，前面列为特征）
+'''
+def calcShannonEnt(dataSet):
+	numEntries = len(dataSet) #数据个数
+	labelCounts = {}#数据字典，键为最后一列标签，key-value,python内置构建dict的hash索引表，查找很快
+	for featVec in dataSet: #key必须是不可变对象，
+		currentLabel = featVec[-1] #数据标签，是否属于鱼类
+		#print(currentLabel)
+		if currentLabel not in labelCounts.keys(): #查找key
+			labelCounts[currentLabel] = 0
+		labelCounts[currentLabel] += 1 #计算类别个数
+	print(labelCounts)
+	shannonEnt = 0.0
+	for key in labelCounts:
+		prob = float(labelCounts[key])/numEntries #每个概率
+		shannonEnt  -= prob * log(prob, 2) #求香农熵
+	return shannonEnt
+'''
+	输入数据集
+	5行(样本个数)3列(2列特征) 最后一列类别标签）
+	labels对应特征名
+'''
+def createDataSet():
+	dataSet = [[1, 1, 'yes'],
+			[1, 1, 'yes'],
+			[1, 0, 'no'],
+			[0, 1, 'no'],
+			[0, 1, 'no']] #list,元素为list
+	labels = ['no surfacing', 'flippers']
+	return dataSet, labels
+
+'''
+	按照给定特征划分数据集
+	返回对应特征与value相等的集合
+	dataSet:待划分数据集
+	axis:划分数据集的特征
+	value:需返回的特征的值
+	eg: axis:0 value:1 dataset[[1,1,'yes],[1,1,'yes'], [1,0,'no'], [0,1,'no'],[0,1,'no']]  retDataSet = [[1,'yes'],[1,'yes'],[0,'no']]
+'''
+def splitDataSet(dataSet, axis, value):
+	retDataSet = []  #列表对象
+	for featVec in dataSet: #每一行（即一个样本） 得到去除对应axis的特征且与特征相等的集合
+		if featVec[axis] == value:
+			reducedFeatVec = featVec[:axis] #从开始到axis，初始为空
+			reducedFeatVec.extend(featVec[axis+1:]) #把特征抽取出来，从下一维到结束
+			retDataSet.append(reducedFeatVec) #添加元素，每个元素不包含特征
+	return retDataSet
+
+'''
+	选择最好的特征划分方式
+	使用ID3算法，即若某次划分时特征有四个值，则划分为4个分支
+'''
+def chooseBestFeatureToSplit(dataSet):
+	numFeatures = len(dataSet[0]) - 1 #特征个数
+	baseEntory = calcShannonEnt(dataSet) #原始熵
+	bestInfoGain = 0.0; bestFeature = -1
+	for i in range(numFeatures): #遍历特征
+		featList = [example[i] for example in dataSet] #[1,1,1,0,0] 取出每一个样本的第i个特征
+		uniqueVals = set(featList) # 使用set,确保每个值都不相同，从列表中创建集合是python中得到列表唯一元素值的最快方法。
+		newEntropy = 0.0
+		for value in uniqueVals: #遍历每个特征对应的不同值，进行不同划分
+			subDataSet = splitDataSet(dataSet, i, value) #按照不同特征值分类
+			prob = len(subDataSet)/float(len(dataSet)) #p(x(i))
+			newEntropy += prob * calcShannonEnt(subDataSet) #熵的和
+		infoGain = baseEntory - newEntropy  #信息增益
+		if (infoGain > bestInfoGain):   #差值
+			bestInfoGain = infoGain # 找到熵最大值
+			bestFeature = i #找到最佳特征划分方式
+	return bestFeature
+'''
+    投票表决
+    类标签
+'''
+def majorityCnt(classList): #投票
+	classCount = {}
+	for vote in classList:
+		if vote not in classCount.keys(): classCount[vote] = 0
+		classCount[vote] += 1
+	sortedClassCount = sorted(classCount.iteritems(),\
+		key = operator.itemgetter(1), reverse = True)
+	return sortedClassCount[0][0]
+
+'''
+    构建树
+    dataSet:数据集 特征+类别标签
+    label:['no surfacing' 'flippers'] 属性标签
+'''
+def createTree(dataSet, labels):
+	classList = [example[-1] for example in dataSet]  #类别标签，['yes' 'yes' 'no' 'no' 'no']
+	if classList.count(classList[0]) == len(classList): #类别完全相同则停止划分
+		return classList[0]
+	if len(dataSet[0]) == 1: #只剩类别标签
+		return majorityCnt(classList) #若特征已遍历完毕返回出现次数最多的特征
+	bestFeat = chooseBestFeatureToSplit(dataSet) #寻找最佳划分方式
+	bestFeatureLabel = labels[bestFeat] #第几个标签
+	myTree = {bestFeatureLabel:{}} # 字典，子元素可能为子树 First Time: {'no surfacing': {}} Second: {'no surfacing': {0: 'no'}} Third: {'flippers': {0: 'no'}}
+	del(labels[bestFeat]) #删除最好特征 #最终 {'no surfacing': {0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}}
+	featValues = [example[bestFeat] for example in dataSet] # 找到最好划分方式的不同特征值
+	uniqueVals = set(featValues)
+	for value in uniqueVals:
+		subLabels = labels[:] #按引用传递
+		myTree[bestFeatureLabel][value] = createTree(splitDataSet\
+								(dataSet, bestFeat, value), subLabels) #返回子树 #递归调用，最好元素划分的子集也是子树
+	return myTree
+# 测试分类
+'''
+	inputTree:输入树 {'no surfacing': {0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}}
+	featLabels:特征标签 <type 'list'>: ['flippers']
+	testVec:测试向量 <type 'list'>: [1, 0]
+'''
+def classify(inputTree,featLabels,testVec):
+	firstStr = inputTree.keys()[0] #'no surfacing' 特征
+	secondDict = inputTree[firstStr] #{0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}
+	featIndex = featLabels.index(firstStr)
+	for key in secondDict.keys():
+		if testVec[featIndex] == key:
+			if type(secondDict[key]).__name__ == 'dict':
+				classLabel = classify(secondDict[key], featLabels, testVec)
+			else:	classLabel = secondDict[key]
+	return classLabel
+'''
+	使用pickle来序列化存树
+'''
+def storeTree(inputTree, filename):
+	import pickle #可序列化，存储对象
+	fw = open(filename,'w')
+	pickle.dump(inputTree,fw)
+	fw.close()
+'''
+	取树
+'''
+def grabTree(filename):
+	import pickle
+	fr = open(filename)
+	return pickle.load(fr)
+if __name__ == '__main__':
+	myDat,labels = createDataSet()
+	myTree = treePlotter.retrieveTree(0)
+	#mytree = createTree(myDat,labels)# {'no surfacing': {0: 'no', 1: {'flippers': {0: 'no', 1: 'yes'}}}}
+	print(classify(myTree, labels, [1,0]))
+	#myDat[0][-1] = 'maybe' #通常而言数据分类越多熵越高
+	#retDataSet = splitDataSet(myDat,0,1) #0:划分数据集特征
+
+	#print(retDataSet)
+	#rint(calcShannonEnt(myDat))
+	#chooseBestFeatureToSplit(myDat)
+
+	'''
+	myTree = treePlotter.retrieveTree(0) 
+	print classify(myTree, labels, [1,0]) # 1 0 返回no 说明非鱼类，分类正确 图3-6
+	print classify(myTree, labels, [1,1])
+	#chooseBestFeatureToSplit(myDat) # 结果：0， 说明第0个特征最好用于划分数据集
+	storeTree(myTree,'classifierStorage.txt')
+	print grabTree('classifierStorage.txt') #pickle存储不改变格式
+
+	fr = open('lenses.txt')
+	lenses = [inst.strip().split('\t') for inst in fr.readlines()]
+	lensesLabels = ['age', 'prescript', 'astigmatic', 'teraRate']
+	lensesTree = createTree(lenses, lensesLabels)
+	treePlotter.createPlot(lensesTree)
+	'''
+```
+
