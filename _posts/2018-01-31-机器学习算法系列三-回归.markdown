@@ -1,0 +1,637 @@
+---
+title:  "机器学习算法系列三-回归"   
+date:   2018-01-31 11:59:23  
+categories: [MachineLearning]  
+tags: [MachineLearning]  
+
+---
+
+<script type="text/javascript"
+   src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/x-mathjax-config"> MathJax.Hub.Config({ TeX: { equationNumbers: { autoNumber: "all" } } }); </script>
+
+```
+---
+简介：回归主要用于对数值型数据进行预测。如预测某数值型的目标值，若是线性等式，所列出的方程即为回归方程，其中每个特征对应的系数值为回归系数，求这些系数的过程称为回归。 虽然称为回归，实际工作却是数值预测，被称为回归是历史原因。
+---
+
+```
+
+## 前言
+在LR和LWLR以及岭回归过程中，和推导logistic回归一样，均需要使用到矩阵和向量求导，需要统一符号记法，这里所述公式书写和推导均按照《The Matrix Cookbook》的规范来写，详情见：[The Matrix Cookbook](https://www.google.com.sg/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0ahUKEwj11LaEl4bZAhVJKY8KHcgpB0IQFggmMAA&url=http%3A%2F%2Fwww2.imm.dtu.dk%2Fpubdb%2Fviews%2Fedoc_download.php%2F3274%2Fpdf%2Fimm3274.pdf&usg=AOvVaw3SPMIZXXCwjln3Fob1wAIW)
+
+其中重要的几条为：  
+$$a$$：表示列向量；  
+$$A$$：表示矩阵；  
+$$ 	\frac{\partial (x-As)^TW(x-As)}{\partial s} = -2A^TW(x-As)  $$ ：表示平方误差求偏导；   
+$$ 	\frac{\partial ||x||_2^2}{\partial x} =  \frac{\partial ||x^Tx||_2}{\partial x} = 2x $$ ：表示2阶范数求导；       
+
+## 线性回归
+线性回归部分主要参考Machine Learning In Action一书，[书籍地址](https://www.manning.com/books/machine-learning-in-action)
+
+线性模型和非线性模型都可以对曲线建模，两者区别在于。线性模型中，参数为线性的，通常而言每一项里特征因子对应的参数只有一个，即意味着输入项分别乘一些常数，最后结果相加得到输出。  
+[线性回归与非线性回归](https://segmentfault.com/a/1190000009596712)
+### 1.线性回归
+#### 1.1 原理
+首先定义误差函数为平方误差，如下所示：
+
+$$
+	\sum_{i=1}^m (y_i-x_i^Tw)^2 
+$$
+
+其中y为预测值目的就是找到回归系数w,x为输入，使得误差最小。
+可以采用向量化表达写作
+
+$$
+	L=(y-Xw)^T(y-Xw)
+$$
+
+对L关于回归系数w求偏导可得
+
+$$ 	\frac{\partial L}{\partial w} = -2X^T(Y-XW)  $$
+
+对于L，是凸函数，令偏导数为0即可得到最优解，化简可得
+
+$$
+	 	w = (X^TX) ^ {-1} X^Ty 
+$$
+
+#### 1.2 实现
+
+
+![](http://owvctf4l4.bkt.clouddn.com/regression_img2.png)  
+本次所有数据样本如图所示，从ex0.txt文件中加载文件，其中tab分割，回车换行，首先定义函数loadDataSet()加载数据集，返回数据矩阵和标签向量。其中数据为自己硬编码构造，构造公式如下。
+
+$$
+ y = 0.3 + 1.7x + 0.1sin(30x)+0.06N(0,1)
+$$
+
+```python
+# 加载数据集
+# 第一行为x0,均为1.0
+# 第二行为x1,横坐标
+# 第三行为实际输出值，纵坐标
+def loadDataSet(filename):
+    numFeat = len(open(filename).readline().split('\t')) - 1;
+    dataMat = []
+    classLabel = []
+    fr = open(filename)
+    for line in fr.readlines():
+        lineArr = []
+        curLine = line.strip().split('\t')
+        for i in range(numFeat):
+            lineArr.append(float(curLine[i]))
+        dataMat.append(lineArr) #每行为一个元素
+        classLabel.append(float(curLine[-1]))
+    return dataMat,classLabel
+```
+
+
+定义函数standRegree计算拟合曲线，需要注意线性回归若不考虑SVD分解，若行列式为0，不可直接求逆，此外需注意标签向量在数据集加载过程中使用append方法为行向量，需要矩阵化再转置。
+
+```python
+#计算最佳拟合曲线
+def standRegress(xArr, yArr):
+    xMat = mat(xArr)
+    yMat = mat(yArr).T
+    xTx = xMat.T * xMat
+    #奇异矩阵不能直接求逆，可以采用SVD分解求伪逆
+    #SVD求解：U,s,Vh = scipy.linalg.svd(A)
+    #linalg 异常检测
+    #det:Compute the determinant of an array. 计算行列式
+    if linalg.det(xTx) == 0.0:
+        print "This matrix is singular, cannot do inverse"
+        return
+    ws = xTx.I * (xMat.T * yMat) #二维
+    return ws
+```
+
+定义图像绘制函数plot
+
+```python
+def plot(xMat, yMat, yHat, ws):
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.scatter(xMat[:,1].flatten().A[0], yMat.T[:,0].flatten().A[0])
+    xCopy = xMat.copy() #排序完绘制
+    xCopy.sort(0)
+    yHat = xCopy * ws
+    ax.plot(xCopy[:,1],yHat)
+    plt.show()
+    return 0
+```
+
+目的是从数据集中构造出如下回归直线，注意这里只有两个特征，且第一个常数，图像实际横坐标为第二个特征，纵坐标为标签值。  
+![](http://owvctf4l4.bkt.clouddn.com/regression_img1)
+至此，运行后已经可以绘制出上图所示图像，得到了简单回归方程，由于是在整个数据集上进行回归，很容易出现欠拟合现象，可以看出在只有两个特征的情况下使用OLS，拟合出来一条直线，拟合效果较差。
+
+```python
+if __name__ == '__main__':
+    #线性回归
+
+    xArr, yArr = loadDataSet('ex0.txt')
+    ws = standRegress(xArr, yArr)
+    xMat = mat(xArr)
+    yMat = mat(yArr)
+    yHat = xMat * ws
+    plot(xMat, yMat, yHat, ws)
+```
+
+**为了比较预测值yHat和真实值y序列的匹配程度，可以就算两个序列的相关系数，python中使用correff(yHat.T, yMat)即可计算相关系数**
+
+### 2.局部加权线性回归
+
+#### 2.1 原理
+普通最小二乘法(OLS)容易出现欠拟合的情况，因此常会考虑加入一些偏差项，从而降低均方误差。其中最常用的是LWLR(局部加权线性回归)，即给待测点附近的每个点赋予一定的权重。然后进行普通回归。此时误差函数向量化后为
+
+$$
+	L=(y-Xw)^TW(y-Xw)
+$$
+
+其中W为权重系数矩阵，y为预测向量，X为输入，如同OLS一样，关于w求偏导令其为0，移项后
+最终借得回归系数为	
+
+$$ 	
+	\hat w = (X^TWX)^{-1}X^TWy  
+$$
+
+LWLR使用核来对附近的点赋予更高的权值，最常用的是高斯核，如下所示。距离的点越近，赋予的权重越高。这样也决定了预测值时，只有附近的少量点参与预测，合理的选择参数k,可以使得预测到的结果较准确。
+
+$$ 	
+	w(i,i) = exp(\frac{x^i - x}{-2k^2})  
+$$
+
+**需要注意的是，与KNN一样，每次预测都要使用整个数据集。**
+从公式中可以看出，当k很小时，只选择极临近的点参与预测，会出现过拟合现象。
+
+#### 2.2实现
+
+```python
+#局部加权线性回归
+def lwlr(testPoint, xArr, yArr, k=1.0):
+    xMat = mat(xArr);
+    yMat = mat(yArr).T
+    m = shape(xMat)[0]
+    weights = mat(eye(m))
+    for j in range(m):
+        diffMat = testPoint - xMat[j,:]
+        weights[j,j] = exp(sqrt(diffMat*diffMat.T)/(-2.0*k**2))
+    xTx = xMat.T * (weights * xMat)
+    if linalg.det(xTx) == 0.0:
+        print "This matrix is singular, cannot do inverse"
+        return
+    ws = xTx.I * (xMat.T * (weights * yMat)) #特征x二维，w二维
+    return testPoint * ws
+    
+    #对每个点进行局部加权回归
+def lwlrTest(testArr, xArr, yArr, k=1.0):
+    m = shape(testArr)[0]
+    yHat = zeros(m) #估计值
+    for i in range(m):
+        yHat[i] = lwlr(testArr[i], xArr, yArr,k)
+    return  yHat
+
+```
+最终得到的结果如下图所示，当k取0.1时拟合较完美。可以看出拟合效果比普通OLS好很多。
+
+**K = 0.5**
+![](http://owvctf4l4.bkt.clouddn.com/regression_img5.png)
+
+**K = 0.1:**
+
+![](http://owvctf4l4.bkt.clouddn.com/regression_img3.png)
+
+**K = 0.01**
+
+![](http://owvctf4l4.bkt.clouddn.com/regression_img4.png)
+
+下图展示了当k不同时数据集点的权重，可以发现k越小，用来预测的周围点越少，容易出现过拟合的折线。当k过大时，预测效果和普通OLS几乎一致。
+
+![](https://www.addops.cn/static/upload/20170303/6inXordkuYsOx12Fe0euJopt.jpg)
+
+
+**局部线性回归每次预测都用到整个数据集，实际上可能很多点的权重都接近零，如果避免计算将大幅减少计算时间。** 此外在高斯核的k值选取上，若k太小，可能会出现训练集拟合很完美，测试集很糟糕的情况。
+
+### 3.岭回归
+
+在使用LR和LWLR的过程中，很明显的可以知道首先不能计算的逆。此外，少数情况下，由于收集数据的复杂性，数据的特征可能比样本点还多。此时x不是满秩矩阵（即行列均满秩）。为了解决这个问题，提出了一些**缩减方法**，如岭回归(ridge regression),lasso，前向逐步回归等。
+
+岭回归是在矩阵上加一个单位矩阵使得矩阵非奇异，相当于加入惩罚项，减少不重要的参数，称为缩减。**由于所加的单位矩阵只有对角线有值，像一个岭，故称之为岭回归**
+
+#### 3.1推导：
+岭回归提出的目的在于解决奇异矩阵无法求导和对模型进行缩减的功能。首先看一下其定义的损失函数。
+
+$$
+ J = \frac{1}{2}||y-Xw||^2+\frac{\lambda}{2}||w||^2 
+$$
+
+其中：  
+$$\lambda$$:惩罚系数  
+由损失函数定义可以看出，岭回归再损失函数中引入了损失项。这里有两种引入岭回归的说法：
+  
+1.多元线性回国模型中，最重要的就是求逆，而若x的各列向量之间存在强相关性，则行列式接近为0，则逆矩阵对角线上的值很大。而**岭回归可以解决强共线性的问题**，通过不断增大惩罚系数的过程中，画下估计参数的变化情况，即为岭迹，若岭迹波动很大，说明不稳定，则剔除该变量。
+
+2.可以看到损失函数中引入了惩罚项(最后一项)，其中 为惩罚系数，回归的目的就是为了让损失函数尽可能小，而若不加限定，可能存在有多个特征时，一些回归系数为很大的正系数，一些为很大的负系数，回归系数波动巨大，不能构成稳定的模型，这里通过引入惩罚项限定了所有回归系数的平方和小于t，由于惩罚项的限定，其中不重要的回归系数会被逐渐压缩为0，只保留重要的特征，减少了不重要的参数，也即起到了缩减作用。
+
+
+由于损失函数第一项与第二项呈倍数关系，故若特征数目为2的时候，可以认为是抛物面，切点便是岭回归的解。[参考博客](http://www.cnblogs.com/pingzeng/p/5040911.html)。
+
+**根据前言中的矩阵求导公式可得**
+
+$$
+ 	\frac{\partial J(w)}{\partial w} = -X^T(Y-Xw)+\lambda w 
+$$
+
+令其为0，便可得到权重系数表达式为
+
+$$
+ 	w = (X^TX+\lambda I)^{-1}X^TY  
+$$
+
+#### 3.2实现
+定义函数ridgeRegres和标准化方法regularize()以及计算均方差之和函数rssError.注意为了使用岭回归算法和缩减技术，必须先对特征进行标准化处理，使所有特征具有同等重要性。
+如果X是正交的，那么岭回归相当于最小二乘法的缩放。
+
+```python
+#岭回归算法
+def ridgeRegres(xMat, yMat, lam=0.2):
+    xTx = xMat.T * xMat
+    denom = xTx + eye(shape(xMat)[1]) * lam # 加对角线均为一的对角矩阵,大小为特征个数
+    if linalg.det(denom) == 0.0:
+        print "This matrix is singular, cannot do inverse"
+        return
+    ws = denom.I * (xMat.T * yMat)
+    return ws
+
+def rssError(yArr,yHatArr):
+    return ((yArr-yHatArr)**2).sum()
+
+def regularize(xMat):#regularize by columns
+    inMat = xMat.copy()
+    inMeans = mean(inMat,0)   #calc mean then subtract it off
+    inVar = var(inMat,0)      #calc variance of Xi then divide by it
+    inMat = (inMat - inMeans)/inVar
+    return inMat
+```
+
+#### 3.3岭迹图
+对$$\lambda$$分别赋予不同值，同时画出回归系数变化图，通常而言可以在中间某处找到预测结果最好的$$\lambda$$.如下图所示，可以查看出哪些特征影响最大，哪些特征可被剔除，以及哪些特征可能存在强共线性。在0轴来回波动最大的或始终为0的可以剔除。
+![](http://attachbak.dataguru.cn/attachments/forum/201603/04/180759vkgxxkvjtvkozvvx.jpg)
+
+#### 3.4lasso
+在损失函数中引入平方和误差可以方便的进行求导，得到解析解。若普通OBS和岭回归一样加入约束条件，则两者一致。而losso不是限定平方和大小，而是限定所有系数的绝对值之和。这样做的好处在于回归参数更容易被压缩为0，可以更好的用来剔除特征。
+注意这里虽然从表达形式上看，只是进行了少许改动，然而这样的表达方式却很难得到估计参数的表达式**需要使用二次规划算法求解或最小角回归LAR进行预测（暂缺）**。
+
+
+
+### 4.前向逐步回归
+
+lasso的参数求解十分困难，可采用前向逐步回归算法近似得到。它属于贪心算法，每次迭代中都尽可能减少误差，初始条件下，所有权重系数一致。而后每一步都是对某个权重增加或者减少一个很小的值。这样，在经过一定次数迭代后，可以发现某些回归系数接近0，可弃之。
+
+```python
+def ridgeTest(xArr, yArr):
+    xMat = mat(xArr)
+    yMat = mat(yArr).T
+    yMean  = mean(yArr,0)
+    yMat = yMat - yMean
+    xMeans = mean(xMat, 0)
+    xVar = var(xMat, 0)
+    xMat = (xMat - xMeans)/xVar #归一化
+    numTestPts = 30
+    wMat = zeros((numTestPts,shape(xMat)[1]))
+    for i in range(numTestPts):
+        ws = ridgeRegres(xMat,yMat,exp(i-10))
+        wMat[i,:] = ws.T
+    return wMat
+
+#前向逐步回归
+#贪心算法，逐渐改变权重
+##优势：可以及时停止收集无用的特征，突出重要特征
+def stageWise(xArr, yArr, eps=0.01,numIt=100):
+    xMat = mat(xArr)
+    #yArr:list
+    yMat = mat(yArr).T
+    yMean = mean(yMat, 0)
+    yMat = yMat - yMean
+    xMat = regularize(xMat)
+    m,n = shape(xMat)
+    returnMat = zeros((numIt, n))
+    ws = zeros((n,1))
+    wsTest = ws.copy()
+    wsMax = ws.copy()
+    for i in range(numIt):
+        print ws.T
+        lowestError = inf;
+        for j in range(n): #每一轮都对每个回归系数小幅度变换
+            for sign in [-1,1]:
+                wsTest = ws.copy()
+                wsTest[j] += eps * sign
+                yTest = xMat * wsTest
+                rssE = rssError(yMat.A,yTest.A)
+                if rssE < lowestError:
+                    lowestError = rssE
+                    wsMax = wsTest
+        ws = wsMax.copy()
+        returnMat[i,:] = ws.T
+    return returnMat
+```
+
+### 5.权衡偏差与方差
+偏差：
+$$ 	bias^2(x)=(f(\bar x)-y)^2  $$
+方差：
+$$ 	DX =(f(x) - f(\bar x))^2  $$
+注意这里方差指的是模型之间的差异，偏差时模型预测值和数据之间的差异。
+当进行系数缩减时，会增加偏差，减少方差。通常而言要找到折中的点，使得预测性能最好。通常而言，模型复杂度剧中的表现最好。
+
+### 6.总结：
+
+1. 回归与分类的目的均是预测目标值，回归预测连续性变量，分类预测回归性变量。
+2. 对矩阵x，自身与自身转置乘积的逆若存在则可以直接使用所有回归方法。否则，考虑使用岭回归算法。岭回归是众多缩减法中的一种，对回归系数的大小进行了限制。另一种很好的缩减法是Lasso,但难以求解，因此使用逐步线性回归方法来求得近似结果。
+3. 预测模型要考虑令方差和偏差折中，否则结果会差强人意。回归方法不适用于呈现非线性关系的数据。
+
+
+### 完整实现
+
+```python
+# -*- coding: utf-8 -*-
+'''''''''''''''''''''''''''''''''
+     # @Time    : 2018/1/18 09:17
+     # @Author  : Awiny
+     # @Site    : 
+     # @File    : regression.py.py
+     # @Software: PyCharm
+     # @Github  : FingerRecg
+'''''''''''''''''''''''''''''''''
+import scipy.io
+import os
+from numpy import *
+from time import sleep
+import json
+import urllib2
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  #close the warning
+
+# 加载数据集
+# 第一行为x0,均为1.0
+# 第二行为x1,横坐标
+# 第三行为实际输出值，纵坐标
+def loadDataSet(filename):
+    numFeat = len(open(filename).readline().split('\t')) - 1;
+    dataMat = []
+    classLabel = []
+    fr = open(filename)
+    for line in fr.readlines():
+        lineArr = []
+        curLine = line.strip().split('\t')
+        for i in range(numFeat):
+            lineArr.append(float(curLine[i]))
+        dataMat.append(lineArr) #每行为一个元素
+        classLabel.append(float(curLine[-1]))
+    return dataMat,classLabel
+
+#计算最佳拟合曲线
+def standRegress(xArr, yArr):
+    xMat = mat(xArr)
+    yMat = mat(yArr).T
+    xTx = xMat.T * xMat
+    #奇异矩阵不能直接求逆，可以采用SVD分解求伪逆
+    #SVD求解：U,s,Vh = scipy.linalg.svd(A)
+    #linalg 异常检测
+    #det:Compute the determinant of an array. 计算行列式
+    if linalg.det(xTx) == 0.0:
+        print "This matrix is singular, cannot do inverse"
+        return
+    ws = xTx.I * (xMat.T * yMat) #二维
+    return ws
+
+def plot(xMat, yMat, yHat, ws):
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.scatter(xMat[:,1].flatten().A[0], yMat.T[:,0].flatten().A[0])
+    xCopy = xMat.copy() #排序完绘制
+    xCopy.sort(0)
+    yHat = xCopy * ws
+    ax.plot(xCopy[:,1],yHat)
+    plt.show()
+    return 0
+#局部加权线性回归
+def lwlr(testPoint, xArr, yArr, k=1.0):
+    xMat = mat(xArr);
+    yMat = mat(yArr).T
+    m = shape(xMat)[0]
+    weights = mat(eye(m))
+    for j in range(m):
+        diffMat = testPoint - xMat[j,:]
+        weights[j,j] = exp(diffMat*diffMat.T/(-2.0*k**2))
+    xTx = xMat.T * (weights * xMat)
+    if linalg.det(xTx) == 0.0:
+        print "This matrix is singular, cannot do inverse"
+        return
+    ws = xTx.I * (xMat.T * (weights * yMat)) #特征x二维，w二维
+    return testPoint * ws
+#对每个点进行局部加权回归
+def lwlrTest(testArr, xArr, yArr, k=1.0):
+    m = shape(testArr)[0]
+    yHat = zeros(m) #估计值
+    for i in range(m):
+        yHat[i] = lwlr(testArr[i], xArr, yArr,k)
+    return  yHat
+
+#岭回归算法
+def ridgeRegres(xMat, yMat, lam=0.2):
+    xTx = xMat.T * xMat
+    denom = xTx + eye(shape(xMat)[1]) * lam # 加对角线均为一的对角矩阵,大小为特征个数
+    if linalg.det(denom) == 0.0:
+        print "This matrix is singular, cannot do inverse"
+        return
+    ws = denom.I * (xMat.T * yMat)
+    return ws
+
+
+def rssError(yArr,yHatArr):
+    return ((yArr-yHatArr)**2).sum()
+
+def regularize(xMat):#regularize by columns
+    inMat = xMat.copy()
+    inMeans = mean(inMat,0)   #calc mean then subtract it off
+    inVar = var(inMat,0)      #calc variance of Xi then divide by it
+    inMat = (inMat - inMeans)/inVar
+    return inMat
+
+def ridgeTest(xArr, yArr):
+    xMat = mat(xArr)
+    yMat = mat(yArr).T
+    yMean  = mean(yArr,0)
+    yMat = yMat - yMean
+    xMeans = mean(xMat, 0)
+    xVar = var(xMat, 0)
+    xMat = (xMat - xMeans)/xVar #归一化
+    numTestPts = 30
+    wMat = zeros((numTestPts,shape(xMat)[1]))
+    for i in range(numTestPts):
+        ws = ridgeRegres(xMat,yMat,exp(i-10))
+        wMat[i,:] = ws.T
+    return wMat
+
+#前向逐步回归
+#贪心算法，逐渐改变权重
+##优势：可以及时停止收集无用的特征，突出重要特征
+def stageWise(xArr, yArr, eps=0.01,numIt=100):
+    xMat = mat(xArr)
+    #yArr:list
+    yMat = mat(yArr).T
+    yMean = mean(yMat, 0)
+    yMat = yMat - yMean
+    xMat = regularize(xMat)
+    m,n = shape(xMat)
+    returnMat = zeros((numIt, n))
+    ws = zeros((n,1))
+    wsTest = ws.copy()
+    wsMax = ws.copy()
+    for i in range(numIt):
+        print ws.T
+        lowestError = inf;
+        for j in range(n):
+            for sign in [-1,1]:
+                wsTest = ws.copy()
+                wsTest[j] += eps * sign
+                yTest = xMat * wsTest
+                rssE = rssError(yMat.A,yTest.A)
+                if rssE < lowestError:
+                    lowestError = rssE
+                    wsMax = wsTest
+        ws = wsMax.copy()
+        returnMat[i,:] = ws.T
+    return returnMat
+
+#链接已失效
+def searchForSet(retX, retY, setNum, yr, numPce, origPrc):
+    sleep(10)
+    myAPIstr = 'AIzaSyD2cR2KFyx12hXu6PFU-wrWot3NXvko8vY'
+    searchURL = 'https://www.googleapis.com/shopping/search/v1/public/products?key=%s&country=US&q=lego+%d&alt=json' % (
+    myAPIstr, setNum)
+    pg = urllib2.urlopen(searchURL)
+    retDict = json.loads(pg.read())
+    for i in range(len(retDict['items'])):
+        try:
+            currItem = retDict['items'][i]
+            if currItem['product']['condition'] == 'new':
+                newFlag = 1
+            else:
+                newFlag = 0
+            listOfInv = currItem['product']['inventories']
+            for item in listOfInv:
+                sellingPrice = item['price']
+                if sellingPrice > origPrc * 0.5:
+                    print "%d\t%d\t%d\t%f\t%f" % (yr, numPce, newFlag, origPrc, sellingPrice)
+                    retX.append([yr, numPce, newFlag, origPrc])
+                    retY.append(sellingPrice)
+        except:
+            print 'problem with item %d' % i
+
+
+def setDataCollect(retX, retY):
+    searchForSet(retX, retY, 8288, 2006, 800, 49.99)
+    searchForSet(retX, retY, 10030, 2002, 3096, 269.99)
+    searchForSet(retX, retY, 10179, 2007, 5195, 499.99)
+    searchForSet(retX, retY, 10181, 2007, 3428, 199.99)
+    searchForSet(retX, retY, 10189, 2008, 5922, 299.99)
+    searchForSet(retX, retY, 10196, 2009, 3263, 249.99)
+
+def crossValidation(xArr, yArr, numVal = 10):
+    m = len(yArr)
+    indexList = range(m)
+    errorMat = zeros((numVal, 30))
+    for i in range(numVal):
+        trainX = []
+        trainY = []
+        testX = []
+        testY = []
+        random.shuffle(indexList) #对序列元素进行混洗
+        for j in range(m):
+            if j < m * 0.9:
+                trainX.append(xArr[indexList[j]])
+                trainY.append(yArr[indexList[j]])
+            else:
+                testX.append(xArr[indexList[j]])
+                testY.append(yArr[indexList[j]])
+        wMat = ridgeTest(trainX,trainY) #生成模型
+        #进行预测
+        for k in range(30):
+            matTestX = mat(testX)
+            matTrainX = mat(trainX)
+            meanTrain = mean(matTrainX,0)
+            varTrain = var(matTrainX, 0)
+            matTestX = (matTestX - meanTrain)/varTrain     #用训练数据把测试数据集标准化！
+            yEst = matTestX * mat(wMat[k,:]).T + mean(trainY)
+            errorMat[i,k] = rssError(yEst.T.A,array(testY)) #计算均方差
+    meanErrors = mean(errorMat, 0)
+    minMean = float(min(meanErrors))
+    bestWeights = wMat[nonzero(meanErrors==minMean)]
+    xMat = mat(xArr)
+    yMat = mat(yArr).T
+    meanX = mean(xMat, 0)
+    varX = var(xMat, 0)
+    unReg = bestWeights/varX
+    print "the best model from Ridge Regression is:\n",unReg
+    print "with constant term: ",-1 * sum(multiply(meanX, unReg)) + mean(yMat) #标准化后要展示时需要做
+
+
+if __name__ == '__main__':
+    #线性回归
+
+    xArr, yArr = loadDataSet('ex0.txt')
+    ws = standRegress(xArr, yArr)
+    xMat = mat(xArr)
+    yMat = mat(yArr)
+    yHat = xMat * ws
+    plot(xMat, yMat, yHat, ws)
+
+
+    '''
+    #局部加权线性回归
+    xArr, yArr = loadDataSet('ex0.txt')
+    #ws = standRegress(xArr, yArr)
+    #k = 1 欠拟合 k = 0.001过拟合 k = 0.01，较完美
+    yHat = lwlrTest(xArr, xArr, yArr, 0.01)
+    xMat = mat(xArr)
+    yMat = mat(yArr)
+    srtInd = xMat[:,1].argsort(0)
+    xSort = xMat[srtInd][:,0,:]
+    #绘图
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(xSort[:,1], yHat[srtInd])
+    ax.scatter(xMat[:,1].flatten().A[0], mat(yArr).T.flatten().A[0], s=2, c='red')
+    plt.show()
+
+    '''
+    #岭回归
+    '''
+    abX, abY = loadDataSet('abalone.txt')
+    ridgeWeights = ridgeTest(abX, abY)
+
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(ridgeWeights)
+    plt.show()
+    '''
+    #8个特征，一个年龄标签
+    '''
+    xArr, yArr = loadDataSet('abalone.txt')
+    stageWise(xArr, yArr,0.01,200)
+    '''
+    '''
+    lgx = mat(ones((5,5)))
+    lgx1 = mat(zeros((5,4)))
+    lgx[:,1:5] = lgx1
+    print(lgx)
+    '''
+```
+

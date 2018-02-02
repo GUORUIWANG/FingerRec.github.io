@@ -1,0 +1,35 @@
+---
+title:  "论文阅读笔记一-GAN在车牌识别中的应用"   
+date:   2018-01-29 10:50:23  
+categories: [PaperRecord]  
+tags: [PaperRecord]  
+
+---
+
+<script type="text/javascript"
+   src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/x-mathjax-config"> MathJax.Hub.Config({ TeX: { equationNumbers: { autoNumber: "all" } } }); </script>
+
+
+## Adversarial Generation of Training Examples: Applications to Moving Vehicle License Plate Recognition
+
+
+
+
+#### 1.LSTM
+
+Long Short Term 网络—— 一般就叫做 LSTM ——是一种 RNN 特殊的类型，可以学习长期依赖信息。
+#### 2.CycleGAN
+
+主要适用与风格迁移，CycleGAN的创新点在于能够在源域和目标域之间，无须建立训练数据间一对一的映射，就可实现这种迁移。
+[参考链接](https://github.com/architrathore/CycleGAN/)
+
+![](https://pic7.zhimg.com/80/v2-cdc4e03255aad9cc0fd054d201f7dce5_hd.jpg)
+
+#### 3.EM距离
+[参考链接](http://chaofan.io/archives/earth-movers-distance-推土机距离)
+
+“推土机距离”，就和“推土机”稍微有些联系。如果将分布看做空间中泥土的分布，那么两个分布间的距离就是将这些泥土从一个分布改变到另一个分布所需要消耗的最小能量。这里的能量是泥土重量（权值）和移动距离的乘积。
+
+#### 4.
