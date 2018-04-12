@@ -1,0 +1,45 @@
+---
+title:  "指静脉研究工作总结"   
+date:   2018-04-11 10:50:23  
+categories: [ImageProcess]  
+tags: [ImageProcess]  
+
+---
+
+<script type="text/javascript"
+   src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/x-mathjax-config"> MathJax.Hub.Config({ TeX: { equationNumbers: { autoNumber: "all" } } }); </script>
+
+
+# 指静脉研究工作总结
+准备做别的方向，对去年以前的部分工作进行总结；所有代码均可以在[My Github](https://github.com/FingerRec/)找到。
+
+
+
+## 1.基于八方向滤波器的识别模型
+**IDE： Matlab 2016a **
+**平台：Windows 10;**
+主要工作：
+1.预处理，方向滤波提取特征，欧式距离匹配;  
+2.使用matlabGUI做了一个简单的交互界面。支持输入指静脉图像进行数据库比对识别识别，语音提醒。    
+3. Database:2004，支持使用其它数据集.  
+
+## 2. LBP + DBN 识别模型
+
+**IDE： Matlab 2016a**  
+**平台：Window 10;**  
+主要工作：    
+1.预处理 + 降维LBP提取特征；    
+2.RBM生成DBN，使用NNTool工具箱；  
+
+## 3.AutoEncoding + CNN
+**IDE： Matlab 2016a + tensorflow1.1 + python**  
+**平台：Mac OS + ubuntu16;**  
+需要显存大于4G的GPU。  
+主要工作：  
+1.图像ROI detect 以及clip，使用Genertic 算法做remapping.  
+2.Auto Encoding.  
+3.A cnn model.  
+4.使用TF 不同模型进行比对训练。  
+
