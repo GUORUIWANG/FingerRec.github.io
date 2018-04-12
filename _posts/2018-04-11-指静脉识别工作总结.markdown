@@ -24,7 +24,7 @@ tags: [ImageProcess]
 主要工作：  
 1.预处理，方向滤波提取特征，欧式距离匹配;    
 2.使用matlabGUI做了一个简单的交互界面。支持输入指静脉图像进行数据库比对识别识别，语音提醒。      
-3. Database:2004，支持使用其它数据集.    
+3. Database:fvc2004，支持使用其它数据集.    
 
 ## 2. LBP + DBN 识别模型
 
@@ -33,6 +33,7 @@ tags: [ImageProcess]
 主要工作：    
 1.预处理 + 降维LBP提取特征；    
 2.RBM生成DBN，使用NNTool工具箱；  
+3.Database:SDUMLA
 
 ## 3.AutoEncoding + CNN
 **IDE：Matlab 2016a + tensorflow1.1 + python**  
@@ -43,4 +44,5 @@ tags: [ImageProcess]
 2.Auto Encoding.  
 3.A cnn model.  
 4.使用TF 不同模型进行比对训练。  
+5.Database:SDUMLA + others.
 
