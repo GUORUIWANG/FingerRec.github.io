@@ -34,6 +34,8 @@ tags: [ActivityRecognition]
 
 9.Wang, H., & Schmid, C. (2013, December). Action recognition with improved trajectories. In Computer Vision (ICCV), 2013 IEEE International Conference on (pp. 3551-3558). IEEE.[[paper](https://www.cv-foundation.org/openaccess/content_iccv_2013/papers/Wang_Action_Recognition_with_2013_ICCV_paper.pdf)]
 
+10.Sevilla-Lara, Laura, et al. "On the Integration of Optical Flow and Action Recognition." arXiv preprint arXiv:1712.08416 (2017).[[paper](https://arxiv.org/pdf/1712.08416.pdf)][[Reading notes]()]
+
 ## Extra
 
 
