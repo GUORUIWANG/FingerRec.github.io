@@ -1,5 +1,5 @@
 ---
-title:  "Temporal Segment Networks实验记录"   
+title:  "Temporal Segment Networks编译记录"   
 date:   2018-05-24 16:23:23  
 categories: [ActivityRecognition]  
 tags: [Experiment]  
@@ -43,7 +43,7 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 ### 2.pull镜像
 
-```
+``` bash
 	docker pull allansp84/ubuntu16.04-cuda8.0-opencv2.4.1
 ```
 如果速度过慢，有很多docker加速的方法
@@ -53,13 +53,13 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 运行容器， --ipc=host容器与主机共享内存,注意不要用docker运行，使用nvidia-docker, -it:链接终端 -v:映射文件夹，这样可以同步容器和主机的文件夹， bash:显示bash
 
-```
+``` bash
 	nvidia-docker run -it -v ~/Code:/Code -v /DataSet:/DataSet --ipc=host  allansp84/ubuntu16.04-cuda8.0-opencv2.4.13 bash
 ```
 
 进入容器后，查看显卡信息和nvcc版本是否和自己主机一致
 
-```
+``` bash
 	nvidia-smi
 	nvcc --version
 ```
@@ -67,7 +67,7 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 若一切正常，继续，否则检查nvidia驱动和cuda8.0是否正确安装
 接下来clone TSN代码
 
-```
+``` bash
 	cd /Code
 	git clone --recursive https://github.com/yjxiong/temporal-segment-networks
 	cd temporal-segment-networks
@@ -75,7 +75,7 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 执行编译
 
-```
+``` bash
 	bash build_all.sh
 ```
 
@@ -86,12 +86,12 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 **到此时，整个工程还没有完全可用**
 
-```
+``` bash
 	cd /lib/dense_flow/build
 ```
 使用编译生成的可执行文件extract_gpu来提取光流进行测试
 
-```
+``` bash
 	mkdir tmp
 	./extract_gpu -f /DataSet/UCF-101/ApplyEyeMakeup/v_ApplyEyeMakeup_g01_c01.avi  -x tmp/flow_x -y tmp/flow_y -i tmp/image -b 20 -t 1 -d 0 -s 1 -o dir
 ```
@@ -101,20 +101,20 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 查看内存和CPU利用率,看是不是被这个容器阻塞
 
-```
+``` bash
 	top
 ```
 
 若发现CPU利用率一直卡在100%
 
-```
+``` bash
 	exit
 	sudo pkill -SIGHUP dockerd
 	docker exec -it 容器ID bash
 ```
 注意容器ID可以通过
 
-```
+``` bash
 	docker ps -a
 ```
 
@@ -123,29 +123,29 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 如果tmp文件夹里出现压缩包，说明提取光流方法正确，接下来真的是
 **Happy experimenting!**
 
-##遇到的问题
+## 遇到的问题
 
 ### 1.CUDA/NVCC 版本问题
 TSN编辑需要**CUDA8.0**
 首先用nvcc查看版本
-```
+``` bash
 	nvcc --version
 ```
 若版本为8.0，正常，若安装了8.0后但nvcc显示7.5/9.0 等版本，说明没有正确链接到nvcc,首先进入cuda文件夹查看是不是有nvcc文件
 
-```
+``` bash
 	cd /usr/local/cuda/bin
 ```
 若有，则
-```
+``` bash
 	sudo gedit ~/.bashrc
 ```
 在末尾加入
-```
+``` bash
 	export PATH=$PATH:/usr/local/cuda/bin
 ```
 这时候再使用
-```
+``` bash
 	nvcc --version
 ```
 就可以正常查看了～
