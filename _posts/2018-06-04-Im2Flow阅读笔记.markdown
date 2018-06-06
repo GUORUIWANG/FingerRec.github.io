@@ -1,0 +1,79 @@
+---
+title:  "Im2Flow: Motion Hallucination from Static Images for Action Recognition"   
+date:   2018-06-04 16:33:23  
+categories: [ActivityRecognition]  
+tags: [ReadingRecord]  
+
+---
+
+<script type="text/javascript"
+   src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/x-mathjax-config"> MathJax.Hub.Config({ TeX: { equationNumbers: { autoNumber: "all" } } }); </script>
+
+
+---
+
+《Im2Flow:Motion Hallucination from Static Images for Action Recognition》阅读笔记
+==============
+### 摘要
+现有的从**静态图像识别动作**的方法从图像上直接获取appearances(外观）信息-对象，场景和身体姿势等，用来区分每个动作，然鹅这样的方法,忽略了对定义动作同样有趣的运动信息和动态结构。文中提出了一种方法可以从单张静态图预测未来的运动信息。主要想法是通过数千个视频样本，学习短期动态信息。贡献主要在两方面：1.提出了一个编解码CNN模型和一种新的光流提取方法来得到光流图。(image-to-image translation framework)2.在7个不同数据集上进行实验，得到state-of-the-art的方法。
+
+### Related Work
+
+#### Action Recognition
+基于视频的表示方法有：手工特征，中层特征，深度学习特征等。
+从static image中识别，通用的方法是提取人类的身体部分，物品或者人-物链接和场景信息。本文的工作主要从static image中学习motion信息。
+#### Visual Anticipation
+本文中主要涉及visual future prediction的方法，最相关的是从一帧图像预测光流，**有很多方法做此类研究.（文中引用了几篇类似从static image predict optical flow的方法）**这篇文章中预测效果更好，本文中从数千个没有label的数据集上学习motion信息。由于深度图和光流相关性很高，有的文章中结合深度图和光流来预测。其它预测考虑motion trajectories and human body poses，还有很多方法从视频中预测帧，来生成貌似可信的图像，或者提高表示学习（reprensentation learning）。
+#### Image-to-Image Translation
+通常使用GAN来做Image-to-Image Translation？
+
+### Approach
+#### Motion Encoding
+通常是把光流(u,v)图像变为三通道，第三通道置为0或者利用可视化操作。带来了冗余信息。
+直接从static image中预测optical flow(u,v) vector是一个欠约束问题，这篇文章中把flow prediction当作一个逐像素回归问题，把光流（u，v）解耦(decouple)成angle \theta 和magnitude M。直接预测 \theta 是不正确的, 2pi 和0意义一样，因此把\theta 分为cos(\theta)和sin(\theta)，**（这样对于不同的角度\theta optical flow都不一样）**因此把optical flow编码当作3通道光流图像。如公式1,其中i表示通道数。  
+![](http://owvctf4l4.bkt.clouddn.com/im2flow_form2.png)
+
+作者在训练过程中，使用"labled pairs"，真实光流用文献[53]中的方法实现。把future 5帧的图像提取到的真实光流的平均值作为真实值（减轻噪声影响）。
+
+整个实现方法也比较简单。整个网络的目标是通过一个监督式学习方法。
+训练：使用的UCF101与HMDB51两个数据集，true optical flow 使用文献[53]中的方法提取到的光流，权衡了速度和准确率。
+
+整个网络结构如下图所示，基本和文献[31]中的结构一样，整个网络结构表示为G，做了一些小的改动，称为Im2Flow，整个网络结构是一个Encoder-Decoder结构。使用文献[30]中的结构，在encoder部分使用dilated convolutions[85].Decoder完成up convolutional的操作来生成光流图片。注意中间的三张图表示的分别是sin(\theta),cos(\theta)和Mag，也即3通道的F。
+
+![](http://owvctf4l4.bkt.clouddn.com/Im2Flow1.png)
+
+
+
+整个损失函数如公式二，生成光流图像之后，为了计算第二部分损失项。文中fine-tune了一个ResNet18(pretrained on ImageNet)，对应结构图中的后半部分，记为\phi。 然后计算真实光流图像和预测光流图之间的L2 loss。 这样确定损失函数确定了不仅和原始图像很相像，而且都会有相似的high-level 运动表示。
+
+![](http://owvctf4l4.bkt.clouddn.com/im2flow_form3.png)
+
+
+**Encoder:**
+获取长范围时态依赖。
+**Decoder:**
+Up-convolutional Network.用于生成预测光流图像。
+**Skip Connection:**
+用于筛掉low-level信息。
+
+
+第一部分为pixel loss，     
+![](http://owvctf4l4.bkt.clouddn.com/im2flow_form4.png)
+
+第二部分为第j层激活图，x为输入image，Dj x Hj X W是feature map尺寸。  
+![](http://owvctf4l4.bkt.clouddn.com/im2flow_form1.png)
+
+###关于实验
+在UCF101上使用TSN，比原始光流，性能下降了3%左右。
+###总结
+1.主要的亮点在于传统的optical flow是从2帧之间计算光流信息，这篇里面是直接从一帧图像里面估计光流信息。  
+2.文中提到的光流（u,v）图像转换为sin(\theta),cos(\theta),Mag三通道图像的方法值得借鉴，这样可以适用与大部分的off-the-shelf network。  
+3.这篇文章里面Related Work写的不错，介绍了很多种visual anticipation的方法，包含用视频生成视频，用GAN生成视频等等。  
+4.在static image方法里属于很好的，但是比起几个经典的光流计算方法还有一些差距。如果是考虑数据集的acc,还是要使用诸如tvl1之类的光流计算方法,计算速度文中还未给出。
+
+#### 想法
+
+
+2.有些数据集,比如moments in time，视频时间只有3s,可能可以从视频中预测帧，而后包含了更多的时域信息。或者采用visual anticipation的方法。

@@ -22,6 +22,8 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 **但是**（据说但是前都是废话）,DL框架用的Caffe，提供的自然是caffemodel和prototxt文件，习惯了tensorflow和pyTorch，表示很不想用Caffe，而且工程里用到了opencv(必须是版本2.x),需要支持GPU。很麻烦，基本上要重新安装各个依赖。
 
+**最好不要直接在自己用的服务器/主机上进行操作**
+
 **很好的是**，作者提供了build_all.sh脚本文件，一次安装完所有依赖。不建议直接在自己的服务器/主机上运行。建议使用docker。
 
 **当然，如果本机上使用的是caffe + CUDA8.0 + opencv-2.x(GPU support)可以考虑直接按照作者的思路**
@@ -44,7 +46,7 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 ### 2.pull镜像
 
 ``` bash
-	docker pull allansp84/ubuntu16.04-cuda8.0-opencv2.4.1
+	docker pull allansp84/ubuntu16.04-cuda8.0-opencv2.4.13
 ```
 如果速度过慢，有很多docker加速的方法
 
@@ -120,7 +122,47 @@ TSN 作者**yjxiong etc.**开源了代码并且公布了自己训练的所有模
 
 查看
 
-如果tmp文件夹里出现压缩包，说明提取光流方法正确，接下来真的是
+如果tmp文件夹里出现压缩包，说明提取光流方法正确，接下来进行实验,返回到工程主目录,注意实验中用的版本为python2.7,这里需要卸载python3.5版本
+```
+apt autoremove python3.5
+```
+而后需要移除pip3
+
+```
+cd /usr/local
+rm -rf pip3
+```
+
+安装mpi,安装mpi来进行多GPU支持，caffe真是麻烦(比起pytorch),十分笨重
+
+[参考链接](https://www.jianshu.com/p/2601bfbb6bf0)
+
+提取光流：这一步会把提取到的图片和光流放在同一目录下
+
+```
+bash scripts/extract_optical_flow.sh SRC_FOLDER OUT_FOLDER NUM_WORKER
+```
+
+测试,测试时候按照TSN项目的步骤一步一步来就可以，注意可能会提示**缺少skilearn, google-protobuf之类的，用pip2 install 对应包名就可以**
+
+注意我这里只使用了两块GPU，所以加 --gpus 0 1表示使用gpu 0 和gpu 1， num_worker改为2
+
+```
+python tools/eval_net.py ucf101 1 rgb /DataSet/UCF-101_DENSE_FLOW models/ucf101/tsn_bn_inception_rgb_deploy.prototxt models/ucf101_split_1_tsn_rgb_reference_bn_inception.caffemodel --num_worker 2 --save_scores /RES/rgb_test --gpus 0 1
+
+```
+如果出现cuda.success(10).... Error说明Gpu分配错误，使用了不存在的gpu标号，核对自己的Gpu
+
+如果一直重复加载模型，或者出现cuda, list out of range.可以修改eval_net.py中63行为
+
+```
+gpu_list[mul..... % num]  (num为自己的Gpu个数)
+```
+
+
+
+不出意外的话，可以得到下面的结果
+![](http://owvctf4l4.bkt.clouddn.com/7AF4D40FB2789544F1644F062A0FAC8F.jpg)
 **Happy experimenting!**
 
 ## 遇到的问题
@@ -154,7 +196,7 @@ TSN编辑需要**CUDA8.0**
 虽然项目中的opencv编译时候是在本地，但是在使用densor_flow的时候，会链接到opencv(GPU Support),出现诸如nvcc xxxxxxx或者 no gpu .... 或者 cuda...等等原因均是因为自己安装的opencv版本不对或者没有添加gpu支持，且加了全局symbol。
 
 #### 解决方案
-1.卸载之前版本，安装opencv2.4.13(GPU support)
+1.卸载之前版本，安装opencv2.4.13(GPU support)  
 2.使用docker 
 
 ### 其它问题
